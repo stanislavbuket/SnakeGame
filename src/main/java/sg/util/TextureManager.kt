@@ -14,5 +14,6 @@ object TextureManager {
     val wall: Image = loadImage("/sprites/wall.png")
     val snakeHead: Image = loadImage("/sprites/snake_head.png")
     val snakeBody: Image = loadImage("/sprites/snake_body.png")
+    val snakeTail: Image = loadImage("/sprites/snake_tail.png")
     val food: Image = loadImage("/sprites/food.png")
 }

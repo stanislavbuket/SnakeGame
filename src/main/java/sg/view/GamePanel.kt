@@ -26,7 +26,7 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         const val CELL_SIZE = 30
         const val MIN_SNAKE_LENGTH = 3
         const val MIN_GAME_DELAY = 50f //мінімальний час між кроками логіки
-        const val DEFAULT_GAME_DELAY = 160f //початковий час між кроками логіки
+        const val DEFAULT_GAME_DELAY = 190f //початковий час між кроками логіки
     }
 
     private inner class GameState {
@@ -57,13 +57,17 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
     private val snakeRenderer = SnakeRenderer(
         CELL_SIZE,
         TextureManager.snakeHead,
-        TextureManager.snakeBody
+        TextureManager.snakeBody,
+        TextureManager.snakeTail
     )
 
     //Анімація: контроль часу та інтерполяції
     private var accumulator = 0f
     private var lastUpdateTime = System.currentTimeMillis()
     private var interpolation = 0f
+
+    //Прапорець, який обмежує зміну напрямку за один логічний крок, щоб уникнути "випадкових смертей"
+    private var directionChanged = false
 
     //Передзавантажені зображення в цілях оптимізації
     private val tileImage: Image = TextureManager.tile
@@ -109,6 +113,8 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         state.reset()
         accumulator = 0f
         lastUpdateTime = System.currentTimeMillis()
+        directionChanged = false
+        exitButton.isVisible = false
 
         //Ініціалізує змійку з мінімальною довжиною
         snake.body.clear()
@@ -122,35 +128,29 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         snake.direction = Direction.RIGHT
         snakeRenderer.setPrevState(snake.body)
         food.respawn()
-        timer.start()
+        timer.restart()
     }
 
     private fun stopGame() {
         state.isRunning = false
         state.isGameOver = true
-        timer.stop()
 
-        //Створює ефект колізії в точці голови змійки
         ParticleSystem.spawnParticles(
             snake.body.first().x,
             snake.body.first().y,
             EffectType.COLLISION,
             CELL_SIZE
         )
-
         exitButton.isVisible = true
         repaint()
     }
 
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
-
         //Використовує буферизацію рендерингу
         val bufferImage = createImage(width, height)
         val bufferGraphics = bufferImage.graphics
-
         drawGame(bufferGraphics)
-
         //Малювання результату буферизації на екран
         g.drawImage(bufferImage, 0, 0, this)
     }
@@ -185,14 +185,8 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
             for (y in 0 until BOARD_HEIGHT) {
                 val drawX = x * CELL_SIZE
                 val drawY = y * CELL_SIZE
-
                 //Використовує попередньо обчислений тип клітинки
-                val image = if (grid[x][y] == CellType.WALL) {
-                    wallImage
-                } else {
-                    tileImage
-                }
-
+                val image = if (grid[x][y] == CellType.WALL) wallImage else tileImage
                 g.drawImage(image, drawX, drawY, CELL_SIZE, CELL_SIZE, this)
             }
         }
@@ -260,10 +254,7 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
 
             //Синхронізація логіки гри з поточним часом
             while (accumulator >= state.currentDelay) {
-                //Зберігає поточний стан змійки для інтерполяції
                 snakeRenderer.setPrevState(snake.body)
-
-                //Оновлює логіку гри
                 updateGameLogic()
                 accumulator -= state.currentDelay
             }
@@ -287,8 +278,10 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
             snake.move()
         }
 
-        //Перевіряє колізії з стінами та власним тілом
+        //Перевіряє колізії зі стінами та власним тілом
         checkCollisions()
+
+        directionChanged = false
     }
 
     private fun handleFoodEaten() {
@@ -298,13 +291,10 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
             EffectType.FOOD,
             CELL_SIZE
         )
-
         //Звичайний рух
         snake.move()
-
         //Додає новий сегмент у хвості
         snake.grow()
-
         //Запускає ефект росту
         ParticleSystem.spawnParticles(
             snake.body.last().x,
@@ -312,7 +302,6 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
             EffectType.GROWTH,
             CELL_SIZE
         )
-
         //Оновлює стан гри
         state.score += 10
         state.foodEatenCount++
@@ -347,7 +336,6 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
             KeyEvent.VK_UP -> if (snake.direction != Direction.DOWN) snake.direction = Direction.UP
             KeyEvent.VK_DOWN -> if (snake.direction != Direction.UP) snake.direction = Direction.DOWN
             KeyEvent.VK_SPACE -> state.isPaused = !state.isPaused
-            KeyEvent.VK_R -> if (state.isGameOver) startGame()
         }
     }
 
