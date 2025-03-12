@@ -8,7 +8,7 @@ import java.awt.Image
 import java.awt.geom.AffineTransform
 import kotlin.math.atan2
 
-//М’яку анімацію змійки реалізовано з використанням Catmull-Rom spline інтерполяції.
+//М'яку анімацію змійки реалізовано з використанням Catmull-Rom spline інтерполяції.
 class SnakeRenderer(
     private val cellSize: Int,
     private val headImage: Image,
@@ -17,6 +17,9 @@ class SnakeRenderer(
 ) {
     //Збереження попереднього стану для плавної інтерполяції.
     private var prevSegments = emptyList<Point>()
+
+    //Константа для регулювання плавності кривої
+    private val samplesPerSegment = 5
 
     fun setPrevState(segments: List<Point>) {
         prevSegments = segments.map { it.copy() }
@@ -32,26 +35,27 @@ class SnakeRenderer(
         if (curvePoints.isEmpty()) return
 
         //Рендер голови, тіла та хвоста вздовж кривої
-        //Головна точка (індекс 0) – голова
         drawSegment(g2d, headImage, curvePoints.first(), getAngle(curvePoints, 0))
 
-        //Проміжні точки – тіло
         for (i in 1 until curvePoints.size - 1) {
             drawSegment(g2d, bodyImage, curvePoints[i], getAngle(curvePoints, i))
         }
 
-        //Остання точка – хвіст
-        drawSegment(g2d, tailImage, curvePoints.last(), getAngle(curvePoints, curvePoints.size - 1))
+        if (curvePoints.size > 1) {
+            drawSegment(g2d, tailImage, curvePoints.last(), getAngle(curvePoints, curvePoints.size - 1))
+        }
     }
 
     //Малювання окремого сегмента з урахуванням позиції та кута повороту
     private fun drawSegment(g2d: Graphics2D, image: Image, pt: PointF, angle: Double) {
         val originalTransform = g2d.transform
-        g2d.transform = AffineTransform().apply {
+        val transform = AffineTransform().apply {
             translate(pt.x.toDouble(), pt.y.toDouble())
             rotate(angle)
             translate(-cellSize / 2.0, -cellSize / 2.0)
         }
+
+        g2d.transform = transform
         g2d.drawImage(image, 0, 0, cellSize, cellSize, null)
         g2d.transform = originalTransform
     }
@@ -59,18 +63,22 @@ class SnakeRenderer(
     //Обчислення кута на основі напрямку між сусідніми точками
     private fun getAngle(curve: List<PointF>, index: Int): Double {
         if (curve.size < 2) return 0.0
+
         val pCurrent = curve[index]
-        //Для першої точки використовує напрям до наступної, для останньої – від попередньої
         val (dx, dy) = when (index) {
-            0 -> Pair(curve[1].x - pCurrent.x, curve[1].y - pCurrent.y)
-            curve.lastIndex -> Pair(pCurrent.x - curve[index - 1].x, pCurrent.y - curve[index - 1].y)
+            0 -> {
+                val next = curve[1]
+                Pair(next.x - pCurrent.x, next.y - pCurrent.y)
+            }
+            curve.lastIndex -> {
+                val prev = curve[index - 1]
+                Pair(pCurrent.x - prev.x, pCurrent.y - prev.y)
+            }
             else -> {
                 //Вирівнює напрям між попередньою та наступною точками
-                val dx1 = pCurrent.x - curve[index - 1].x
-                val dy1 = pCurrent.y - curve[index - 1].y
-                val dx2 = curve[index + 1].x - pCurrent.x
-                val dy2 = curve[index + 1].y - pCurrent.y
-                Pair((dx1 + dx2) / 2f, (dy1 + dy2) / 2f)
+                val prev = curve[index - 1]
+                val next = curve[index + 1]
+                Pair((next.x - prev.x) / 2f, (next.y - prev.y) / 2f)
             }
         }
         return atan2(dy.toDouble(), dx.toDouble())
@@ -78,9 +86,10 @@ class SnakeRenderer(
 
     //Обчислення згладженої кривої за допомогою Catmull-Rom spline інтерполяції
     private fun computeSmoothCurve(segments: List<Point>, interpolation: Float): List<PointF> {
-        val points = mutableListOf<PointF>()
-        //Перетворює координати з сітки у піксельні позиції (центр клітинки)
-        for ((index, pt) in segments.withIndex()) {
+        if (segments.isEmpty()) return emptyList()
+
+        //Перетворення координат з логічних у пікселі
+        val points = segments.mapIndexed { index, pt ->
             val (interpX, interpY) = if (index < prevSegments.size) {
                 val prev = prevSegments[index]
                 Pair(
@@ -90,24 +99,31 @@ class SnakeRenderer(
             } else {
                 Pair(pt.x.toFloat(), pt.y.toFloat())
             }
-            points.add(PointF(interpX * cellSize + cellSize / 2.0f, interpY * cellSize + cellSize / 2.0f))
+            PointF(interpX * cellSize + cellSize / 2.0f, interpY * cellSize + cellSize / 2.0f)
         }
+
         if (points.size < 2) return points
 
-        //Інтерполює додаткові точки для отримання гладкої кривої
+        //Побудова кривої
         val curve = mutableListOf<PointF>()
-        val samplesPerSegment = 80 //можна регулювати для досягнення різної плавності
         for (i in 0 until points.size - 1) {
-            val p0 = if (i - 1 >= 0) points[i - 1] else points[i]
+            val p0 = if (i > 0) points[i - 1] else points[i]
             val p1 = points[i]
             val p2 = points[i + 1]
-            val p3 = if (i + 2 < points.size) points[i + 2] else points[i + 1]
-            for (j in 0 until samplesPerSegment) {
-                val t = j / samplesPerSegment.toFloat()
-                curve.add(catmullRomInterpolate(p0, p1, p2, p3, t))
+            val p3 = if (i + 2 < points.size) points[i + 2] else p2
+
+            curve.add(p1)
+
+            //Додає проміжні точки, лише якщо це не зовсім маленька змійка
+            if (points.size > 2 && samplesPerSegment > 1) {
+                for (j in 1 until samplesPerSegment) {
+                    val t = j / samplesPerSegment.toFloat()
+                    curve.add(catmullRomInterpolate(p0, p1, p2, p3, t))
+                }
             }
         }
-        curve.add(points.last())
+
+        curve.add(points.last()) // Додаємо останню точку
         return curve
     }
 

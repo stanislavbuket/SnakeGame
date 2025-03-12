@@ -20,13 +20,14 @@ import kotlin.math.max
 class GamePanel : JPanel(), ActionListener, KeyListener {
     //Константи для налаштувань гри
     private companion object {
-        const val RENDER_DELAY = 16 // ~60 FPS
+        const val RENDER_DELAY = 16 //~60 FPS
         const val BOARD_WIDTH = 20
         const val BOARD_HEIGHT = 20
         const val CELL_SIZE = 30
         const val MIN_SNAKE_LENGTH = 3
         const val MIN_GAME_DELAY = 50f //мінімальний час між кроками логіки
         const val DEFAULT_GAME_DELAY = 190f //початковий час між кроками логіки
+        const val SPEED_INCREASE_STEP = 10f //крок збільшення швидкості
     }
 
     private inner class GameState {
@@ -175,7 +176,7 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
             drawGameOver(g)
         }
 
-        //Малюємо частинки поверх усього
+        //Частинки поверх усього
         ParticleSystem.draw(g, CELL_SIZE)
     }
 
@@ -206,41 +207,39 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
     private fun drawStats(g: Graphics) {
         g.color = Color.WHITE
         g.font = Font("Arial", Font.BOLD, 14)
-        g.drawString("Рахунок: ${state.score}", 10, 20)
-        g.drawString("Їжі з'їдено: ${state.foodEatenCount}", 10, 40)
-        val movesPerSecond = String.format("%.1f", 1000.0 / state.currentDelay)
-        g.drawString("Швидкість: $movesPerSecond кроків/сек", 10, 60)
+
+        val stats = listOf(
+            "Рахунок: ${state.score}",
+            "Їжі з'їдено: ${state.foodEatenCount}",
+            "Швидкість: ${String.format("%.1f", 1000.0 / state.currentDelay)} кроків/сек"
+        )
+
+        stats.forEachIndexed { index, text ->
+            g.drawString(text, 10, 20 + index * 20)
+        }
+    }
+
+    private fun drawCenteredText(g: Graphics, text: String, y: Int, fontSize: Int = 40) {
+        g.font = Font("Arial", Font.BOLD, fontSize)
+        val metrics = g.getFontMetrics(g.font)
+        val x = (width - metrics.stringWidth(text)) / 2
+        g.drawString(text, x, y)
     }
 
     private fun drawPauseMenu(g: Graphics) {
-        g.font = Font("Arial", Font.BOLD, 40)
-        val metrics = g.getFontMetrics(g.font)
-        val text = "Пауза"
-        val x = (width - metrics.stringWidth(text)) / 2
-        val y = height / 2
-        g.drawString(text, x, y)
+        g.color = Color.WHITE
+        drawCenteredText(g, "Пауза", height / 2)
     }
 
     private fun drawGameOver(g: Graphics) {
         g.color = Color.WHITE
-        g.font = Font("Arial", Font.BOLD, 40)
-        val metrics = g.getFontMetrics(g.font)
-        val text = "Гру закінчено"
-        val x = (width - metrics.stringWidth(text)) / 2
-        val y = height / 2
-        g.drawString(text, x, y)
 
-        g.font = Font("Arial", Font.BOLD, 20)
-        val restartText = "'R' щоб почати заново"
-        val metrics2 = g.getFontMetrics(g.font)
-        val x2 = (width - metrics2.stringWidth(restartText)) / 2
-        val y2 = y + 40
-        g.drawString(restartText, x2, y2)
+        drawCenteredText(g, "Гру закінчено", height / 2)
 
-        val scoreText = "Фінальний рахунок: ${state.score}"
-        val x3 = (width - metrics2.stringWidth(scoreText)) / 2
-        val y3 = y2 + 30
-        g.drawString(scoreText, x3, y3)
+        val y2 = height / 2 + 40
+        drawCenteredText(g, "'R' щоб почати заново", y2, 20)
+
+        drawCenteredText(g, "Фінальний рахунок: ${state.score}", y2 + 30, 20)
         exitButton.isVisible = true
     }
 
@@ -269,7 +268,7 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
     }
 
     private fun updateGameLogic() {
-        val head = snake.body.first()
+        val head = snake.body.firstOrNull() ?: return
 
         //Перевіряє, чи змійка з'їла їжу
         if (head.x == food.position.x && head.y == food.position.y) {
@@ -285,41 +284,47 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
     }
 
     private fun handleFoodEaten() {
-        ParticleSystem.spawnParticles(
-            food.position.x,
-            food.position.y,
-            EffectType.FOOD,
-            CELL_SIZE
-        )
-        //Звичайний рух
+        food.position.let { foodPos ->
+            ParticleSystem.spawnParticles(
+                foodPos.x,
+                foodPos.y,
+                EffectType.FOOD,
+                CELL_SIZE
+            )
+        }
+
+        //Звичайний рух і ріст змійки
         snake.move()
-        //Додає новий сегмент у хвості
         snake.grow()
+
         //Запускає ефект росту
-        ParticleSystem.spawnParticles(
-            snake.body.last().x,
-            snake.body.last().y,
-            EffectType.GROWTH,
-            CELL_SIZE
-        )
+        snake.body.lastOrNull()?.let { tail ->
+            ParticleSystem.spawnParticles(
+                tail.x,
+                tail.y,
+                EffectType.GROWTH,
+                CELL_SIZE
+            )
+        }
+
         //Оновлює стан гри
         state.score += 10
         state.foodEatenCount++
 
         //Збільшує швидкість гри кожні 5 з'їденої їжі
         if (state.foodEatenCount % 5 == 0) {
-            state.currentDelay = max(MIN_GAME_DELAY, state.currentDelay - 10)
+            state.currentDelay = max(MIN_GAME_DELAY, state.currentDelay - SPEED_INCREASE_STEP)
         }
 
         food.respawn()
     }
 
     private fun checkCollisions() {
-        val newHead = snake.body.first()
+        val head = snake.body.firstOrNull() ?: return
 
         //Перевіряє колізії зі стінами
-        val hitBoundary = newHead.x <= 0 || newHead.x >= BOARD_WIDTH - 1 ||
-                newHead.y <= 0 || newHead.y >= BOARD_HEIGHT - 1
+        val hitBoundary = head.x <= 0 || head.x >= BOARD_WIDTH - 1 ||
+                head.y <= 0 || head.y >= BOARD_HEIGHT - 1
 
         //Перевіряє колізії з власним тілом
         val hitSelf = snake.checkSelfCollision()
@@ -330,13 +335,30 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
     }
 
     override fun keyPressed(e: KeyEvent) {
+        //Якщо гра закінчена, дозволяється лише перезапуск
+        if (state.isGameOver) {
+            if (e.keyCode == KeyEvent.VK_R) startGame()
+            return
+        }
+
         when (e.keyCode) {
-            KeyEvent.VK_LEFT -> if (snake.direction != Direction.RIGHT) snake.direction = Direction.LEFT
-            KeyEvent.VK_RIGHT -> if (snake.direction != Direction.LEFT) snake.direction = Direction.RIGHT
-            KeyEvent.VK_UP -> if (snake.direction != Direction.DOWN) snake.direction = Direction.UP
-            KeyEvent.VK_DOWN -> if (snake.direction != Direction.UP) snake.direction = Direction.DOWN
+            KeyEvent.VK_LEFT -> if (!directionChanged && snake.direction != Direction.RIGHT) {
+                snake.direction = Direction.LEFT
+                directionChanged = true
+            }
+            KeyEvent.VK_RIGHT -> if (!directionChanged && snake.direction != Direction.LEFT) {
+                snake.direction = Direction.RIGHT
+                directionChanged = true
+            }
+            KeyEvent.VK_UP -> if (!directionChanged && snake.direction != Direction.DOWN) {
+                snake.direction = Direction.UP
+                directionChanged = true
+            }
+            KeyEvent.VK_DOWN -> if (!directionChanged && snake.direction != Direction.UP) {
+                snake.direction = Direction.DOWN
+                directionChanged = true
+            }
             KeyEvent.VK_SPACE -> state.isPaused = !state.isPaused
-            KeyEvent.VK_R -> if (state.isGameOver) startGame()
         }
     }
 
