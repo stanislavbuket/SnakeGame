@@ -336,6 +336,7 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
             KeyEvent.VK_UP -> if (snake.direction != Direction.DOWN) snake.direction = Direction.UP
             KeyEvent.VK_DOWN -> if (snake.direction != Direction.UP) snake.direction = Direction.DOWN
             KeyEvent.VK_SPACE -> state.isPaused = !state.isPaused
+            KeyEvent.VK_R -> if (state.isGameOver) startGame()
         }
     }
 
