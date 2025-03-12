@@ -26,8 +26,8 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         const val CELL_SIZE = 30
         const val MIN_SNAKE_LENGTH = 3
         const val MIN_GAME_DELAY = 50f //мінімальний час між кроками логіки
-        const val DEFAULT_GAME_DELAY = 190f //початковий час між кроками логіки
-        const val SPEED_INCREASE_STEP = 10f //крок збільшення швидкості
+        const val DEFAULT_GAME_DELAY = 230f //початковий час між кроками логіки
+        const val SPEED_INCREASE_STEP = 20f //крок збільшення швидкості
     }
 
     private inner class GameState {
