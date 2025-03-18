@@ -1,40 +1,48 @@
-package sg.view
+package view
 
-import sg.model.Point
-import sg.model.Snake
+import model.Point
+import model.Snake
 import java.awt.Graphics
 import java.awt.Graphics2D
 import java.awt.Image
 import java.awt.geom.AffineTransform
 import kotlin.math.atan2
 
-//М'яку анімацію змійки реалізовано з використанням Catmull-Rom spline інтерполяції.
+/**
+ * Рендерер змійки; відображає змійку з м'якою анімацією, використовуючи Catmull-Rom spline інтерполяцію.
+ */
 class SnakeRenderer(
     private val cellSize: Int,
     private val headImage: Image,
     private val bodyImage: Image,
     private val tailImage: Image
 ) {
-    //Збереження попереднього стану для плавної інтерполяції.
+    //Зберігає попередній стан сегментів для плавної інтерполяції
     private var prevSegments = emptyList<Point>()
 
     //Константа для регулювання плавності кривої
     private val samplesPerSegment = 5
 
+    /**
+     * Зберігає поточний стан сегментів змійки для інтерполяції.
+     */
     fun setPrevState(segments: List<Point>) {
         prevSegments = segments.map { it.copy() }
     }
 
+    /**
+     * Відображає змійку з гладкою анімацією, рендерячи голову, тіло та хвіст уздовж обчисленої кривої.
+     */
     fun render(g: Graphics, snake: Snake, interpolation: Float) {
         val g2d = g as Graphics2D
         val segments = snake.body
 
-        //Обчислює гладку криву через сегменти змійки
+        //Обчислює згладжену криву через сегменти змійки
         val curvePoints = computeSmoothCurve(segments, interpolation)
 
         if (curvePoints.isEmpty()) return
 
-        //Рендер голови, тіла та хвоста вздовж кривої
+        //Рендерить голову, тіло та хвіст вздовж кривої
         drawSegment(g2d, headImage, curvePoints.first(), getAngle(curvePoints, 0))
 
         for (i in 1 until curvePoints.size - 1) {
@@ -46,7 +54,9 @@ class SnakeRenderer(
         }
     }
 
-    //Малювання окремого сегмента з урахуванням позиції та кута повороту
+    /**
+     * Рендерить окремий сегмент змійки з урахуванням позиції та кута обертання.
+     */
     private fun drawSegment(g2d: Graphics2D, image: Image, pt: PointF, angle: Double) {
         val originalTransform = g2d.transform
         val transform = AffineTransform().apply {
@@ -60,7 +70,9 @@ class SnakeRenderer(
         g2d.transform = originalTransform
     }
 
-    //Обчислення кута на основі напрямку між сусідніми точками
+    /**
+     * Обчислює кут повороту сегмента змійки на основі напрямку між сусідніми точками.
+     */
     private fun getAngle(curve: List<PointF>, index: Int): Double {
         if (curve.size < 2) return 0.0
 
@@ -84,11 +96,13 @@ class SnakeRenderer(
         return atan2(dy.toDouble(), dx.toDouble())
     }
 
-    //Обчислення згладженої кривої за допомогою Catmull-Rom spline інтерполяції
+    /**
+     * Обчислює згладжену криву через задані точки змійки з використанням Catmull-Rom spline інтерполяції.
+     */
     private fun computeSmoothCurve(segments: List<Point>, interpolation: Float): List<PointF> {
         if (segments.isEmpty()) return emptyList()
 
-        //Перетворення координат з логічних у пікселі
+        //Перетворює логічні координати у піксельні
         val points = segments.mapIndexed { index, pt ->
             val (interpX, interpY) = if (index < prevSegments.size) {
                 val prev = prevSegments[index]
@@ -104,7 +118,7 @@ class SnakeRenderer(
 
         if (points.size < 2) return points
 
-        //Побудова кривої
+        //Будує криву з отриманих точок
         val curve = mutableListOf<PointF>()
         for (i in 0 until points.size - 1) {
             val p0 = if (i > 0) points[i - 1] else points[i]
@@ -114,7 +128,7 @@ class SnakeRenderer(
 
             curve.add(p1)
 
-            //Додає проміжні точки, лише якщо це не зовсім маленька змійка
+            //Додає проміжні точки, якщо змійка містить більше ніж 2 сегменти
             if (points.size > 2 && samplesPerSegment > 1) {
                 for (j in 1 until samplesPerSegment) {
                     val t = j / samplesPerSegment.toFloat()
@@ -123,11 +137,13 @@ class SnakeRenderer(
             }
         }
 
-        curve.add(points.last()) // Додаємо останню точку
+        curve.add(points.last()) //Додає останню точку
         return curve
     }
 
-    //Реалізація Catmull-Rom інтерполяції
+    /**
+     * Застосовує Catmull-Rom інтерполяцію для отримання нової точки на кривій.
+     */
     private fun catmullRomInterpolate(p0: PointF, p1: PointF, p2: PointF, p3: PointF, t: Float): PointF {
         val t2 = t * t
         val t3 = t2 * t
@@ -142,10 +158,11 @@ class SnakeRenderer(
         return PointF(x, y)
     }
 
+    //Лінійна інтерполяція між двома значеннями
     private fun lerp(a: Float, b: Float, t: Float): Float {
         return a + (b - a) * t
     }
 }
 
-//Допоміжний клас для роботи з позицією що плаває
+/**Допоміжний клас, що містить координати точки з плаваючою точністю для рендерингу.*/
 data class PointF(val x: Float, val y: Float)

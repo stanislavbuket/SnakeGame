@@ -1,7 +1,10 @@
-package sg.view
+package view
 
 import javax.swing.JFrame
 
+/**
+ * Головне вікно гри; налаштовує параметри вікна та додає панель гри.
+ */
 class GameFrame : JFrame() {
     init {
         add(GamePanel())

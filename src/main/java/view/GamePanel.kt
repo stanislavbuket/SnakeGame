@@ -1,12 +1,12 @@
-package sg.view
+package view
 
-import sg.model.Direction
-import sg.model.Food
-import sg.model.Point
-import sg.model.Snake
-import sg.fx.ParticleSystem
-import sg.fx.ParticleSystem.EffectType
-import sg.util.TextureManager
+import model.Direction
+import model.Food
+import model.Point
+import model.Snake
+import fx.ParticleSystem
+import fx.ParticleSystem.EffectType
+import util.TextureManager
 import java.awt.*
 import java.awt.event.ActionEvent
 import java.awt.event.ActionListener
@@ -17,6 +17,9 @@ import javax.swing.JPanel
 import javax.swing.Timer
 import kotlin.math.max
 
+/**
+ * Панель гри; відповідає за логіку, рендеринг та управління ігровим процесом.
+ */
 class GamePanel : JPanel(), ActionListener, KeyListener {
     //Константи для налаштувань гри
     private companion object {
@@ -30,6 +33,9 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         const val SPEED_INCREASE_STEP = 20f //крок збільшення швидкості
     }
 
+    /**
+     * Зберігає поточний стан гри, включаючи рахунок, швидкість та статус гри.
+     */
     private inner class GameState {
         var isRunning = false
         var isGameOver = false
@@ -54,7 +60,7 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
     private val food = Food(BOARD_WIDTH, BOARD_HEIGHT, snake)
     private val exitButton = JButton("Вийти з гри")
 
-    //Рендерер змійки
+    //Рендерер змійки, який використовує текстури для голови, тіла та хвоста
     private val snakeRenderer = SnakeRenderer(
         CELL_SIZE,
         TextureManager.snakeHead,
@@ -67,10 +73,10 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
     private var lastUpdateTime = System.currentTimeMillis()
     private var interpolation = 0f
 
-    //Прапорець, який обмежує зміну напрямку за один логічний крок, щоб уникнути "випадкових смертей"
+    //Обмежує зміну напрямку за один логічний крок, щоб уникнути "випадкових смертей"
     private var directionChanged = false
 
-    //Передзавантажені зображення в цілях оптимізації
+    //Передзавантажені зображення для оптимізації рендерингу
     private val tileImage: Image = TextureManager.tile
     private val wallImage: Image = TextureManager.wall
     private val foodImage: Image = TextureManager.food
@@ -85,7 +91,7 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         }
     }
 
-    //Типи клітинок поля
+    /**Перераховує типи клітинок поля.*/
     private enum class CellType { EMPTY, WALL }
 
     init {
@@ -99,6 +105,9 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         startGame()
     }
 
+    /**
+     * Перераховує позиції компонентів, якщо активна кнопка виходу.
+     */
     override fun doLayout() {
         super.doLayout()
         if (exitButton.isVisible) {
@@ -110,6 +119,9 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         }
     }
 
+    /**
+     * Ініціалізує параметри гри та задає початковий стан змійки, їжі та анімації.
+     */
     private fun startGame() {
         state.reset()
         accumulator = 0f
@@ -132,6 +144,9 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         timer.restart()
     }
 
+    /**
+     * Зупиняє гру, активує ефект колізії та відображає кнопку виходу.
+     */
     private fun stopGame() {
         state.isRunning = false
         state.isGameOver = true
@@ -146,22 +161,28 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         repaint()
     }
 
+    /**
+     * Рендерить гру з використанням буферизації зображення.
+     */
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
         //Використовує буферизацію рендерингу
         val bufferImage = createImage(width, height)
         val bufferGraphics = bufferImage.graphics
         drawGame(bufferGraphics)
-        //Малювання результату буферизації на екран
+        //Малює результат буферизації на екран
         g.drawImage(bufferImage, 0, 0, this)
     }
 
+    /**
+     * Малює ігрове поле та всі активні об'єкти, включаючи змійку, їжу, статистику та ефекти частинок.
+     */
     private fun drawGame(g: Graphics) {
         //Малює поле
         drawGrid(g)
 
         if (state.isRunning) {
-            //Малюємо ігрові елементи
+            //Малює ігрові об'єкти
             drawFood(g)
             snakeRenderer.render(g, snake, interpolation)
             drawStats(g)
@@ -176,11 +197,13 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
             drawGameOver(g)
         }
 
-        //Частинки поверх усього
+        //Рендерить частинки поверх усього
         ParticleSystem.draw(g, CELL_SIZE)
     }
 
-    //Оптимізоване малювання поля з кешуванням
+    /**
+     * Малює сітку ігрового поля із застосуванням текстур для стін та плиток.
+     */
     private fun drawGrid(g: Graphics) {
         for (x in 0 until BOARD_WIDTH) {
             for (y in 0 until BOARD_HEIGHT) {
@@ -193,6 +216,9 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         }
     }
 
+    /**
+     * Рендерить їжу на полі з використанням відповідної текстури.
+     */
     private fun drawFood(g: Graphics) {
         g.drawImage(
             foodImage,
@@ -204,6 +230,9 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         )
     }
 
+    /**
+     * Відображає статистику гри: рахунок, кількість з'їденої їжі та швидкість гри.
+     */
     private fun drawStats(g: Graphics) {
         g.color = Color.WHITE
         g.font = Font("Arial", Font.BOLD, 14)
@@ -219,6 +248,9 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         }
     }
 
+    /**
+     * Рендерить текст, центрований по горизонталі.
+     */
     private fun drawCenteredText(g: Graphics, text: String, y: Int, fontSize: Int = 40) {
         g.font = Font("Arial", Font.BOLD, fontSize)
         val metrics = g.getFontMetrics(g.font)
@@ -226,11 +258,17 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         g.drawString(text, x, y)
     }
 
+    /**
+     * Відображає меню паузи.
+     */
     private fun drawPauseMenu(g: Graphics) {
         g.color = Color.WHITE
         drawCenteredText(g, "Пауза", height / 2)
     }
 
+    /**
+     * Рендерить екран завершення гри із фінальним рахунком та інструкціями.
+     */
     private fun drawGameOver(g: Graphics) {
         g.color = Color.WHITE
 
@@ -243,6 +281,9 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         exitButton.isVisible = true
     }
 
+    /**
+     * Обробляє тікери для оновлення логіки гри та анімації, незалежно від стану гри.
+     */
     override fun actionPerformed(e: ActionEvent?) {
         val now = System.currentTimeMillis()
         val dt = (now - lastUpdateTime).toFloat()
@@ -251,7 +292,7 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         if (!state.isPaused && state.isRunning) {
             accumulator += dt
 
-            //Синхронізація логіки гри з поточним часом
+            //Синхронізує логіку гри з поточним часом
             while (accumulator >= state.currentDelay) {
                 snakeRenderer.setPrevState(snake.body)
                 updateGameLogic()
@@ -267,6 +308,9 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         repaint()
     }
 
+    /**
+     * Оновлює логіку гри: рух змійки, перевірку зіткнень та обробку з'їдання їжі.
+     */
     private fun updateGameLogic() {
         val head = snake.body.firstOrNull() ?: return
 
@@ -283,6 +327,9 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         directionChanged = false
     }
 
+    /**
+     * Обробляє подію з'їдання їжі; ініціює ефекти, оновлює рахунок, змінює швидкість гри та ріст змійки.
+     */
     private fun handleFoodEaten() {
         food.position.let { foodPos ->
             ParticleSystem.spawnParticles(
@@ -293,7 +340,7 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
             )
         }
 
-        //Звичайний рух і ріст змійки
+        //Рухає змійку та збільшує її довжину
         snake.move()
         snake.grow()
 
@@ -319,6 +366,9 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         food.respawn()
     }
 
+    /**
+     * Перевіряє колізії змійки зі стінами та власним тілом.
+     */
     private fun checkCollisions() {
         val head = snake.body.firstOrNull() ?: return
 
@@ -334,8 +384,11 @@ class GamePanel : JPanel(), ActionListener, KeyListener {
         }
     }
 
+    /**
+     * Обробляє натискання клавіш для управління напрямком змійки та керування грою.
+     */
     override fun keyPressed(e: KeyEvent) {
-        //Якщо гра закінчена, дозволяється лише перезапуск
+        //Якщо гра завершена, дозволяє лише перезапуск
         if (state.isGameOver) {
             if (e.keyCode == KeyEvent.VK_R) startGame()
             return

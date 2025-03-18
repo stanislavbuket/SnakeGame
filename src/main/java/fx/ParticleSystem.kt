@@ -1,4 +1,4 @@
-package sg.fx
+package fx
 
 import java.awt.Color
 import java.awt.Graphics
@@ -7,20 +7,26 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
+/**
+ * Система частинок для візуальних ефектів; керує створенням, оновленням та рендерингом частинок.
+ */
 object ParticleSystem {
     private val particles = CopyOnWriteArrayList<Particle>()
 
-    //Об'єднує частинки в "партії" в цілях оптимізації
+    /**
+     * Оновлює позицію всіх частинок, видаляє мертві частинки.
+     */
     fun update(dt: Float) {
-        //Видалення мертвих частинок
+        //Видаляє мертві частинки
         particles.removeIf { !it.isAlive }
-
-        //Масове оновлення "живих" частинок
+        //Масово оновлює живі частинки
         particles.forEach { it.update(dt) }
     }
 
+    /**
+     * Рендерить частинки, групуючи їх за кольором для зменшення перемикань.
+     */
     fun draw(g: Graphics, cellSize: Int) {
-        //Групує частинки за кольором для зменшення перемикань
         val colorGroups = particles.groupBy { it.color }
 
         colorGroups.forEach { (color, particleGroup) ->
@@ -31,10 +37,14 @@ object ParticleSystem {
         }
     }
 
+    /**Перераховує типи ефектів частинок.*/
     enum class EffectType {
         FOOD, GROWTH, COLLISION
     }
 
+    /**
+     * Створює групу частинок на заданій позиції для визначеного ефекту.
+     */
     fun spawnParticles(x: Int, y: Int, effect: EffectType, cellSize: Int) {
         val centerX = x * cellSize + cellSize / 2
         val centerY = y * cellSize + cellSize / 2
@@ -45,7 +55,7 @@ object ParticleSystem {
             EffectType.COLLISION -> ParticleParams(12, Color(255, 0, 0), 0.002f, 300f)
         }
 
-        //Сворення партії частинок
+        //Створює партію частинок
         repeat(params.count) {
             val angle = Random.nextFloat() * (2 * Math.PI).toFloat()
             val speed = Random.nextFloat() * params.speed + params.speed
@@ -57,7 +67,7 @@ object ParticleSystem {
         }
     }
 
-    //Клас для зберігання параметрів частинок
+    /**Зберігає параметри для створення частинок: кількість, колір, швидкість та час життя.*/
     private data class ParticleParams(
         val count: Int,
         val color: Color,

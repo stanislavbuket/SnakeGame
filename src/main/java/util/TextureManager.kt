@@ -1,9 +1,15 @@
-package sg.util
+package util
 
 import java.awt.Image
 import javax.swing.ImageIcon
 
+/**
+ * Менеджер текстур; завантажує зображення для ігрових об'єктів з ресурсів.
+ */
 object TextureManager {
+    /**
+     * Завантажує зображення за вказаним шляхом; генерує помилку, якщо ресурс не знайдено.
+     */
     private fun loadImage(path: String): Image {
         val resource = TextureManager::class.java.getResource(path)
             ?: throw RuntimeException("Ресурс не знайдено: $path")
